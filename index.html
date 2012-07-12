@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript" src="js/d3.v2.min.js"></script>
+		<style type="text/css">
+          .small { font-size: 8pt; font-family: arial; }
+        </style>
+	<head>
+	<body>
+		<div id="viz" style="width:850px; margin:auto"></div>
+		<script type="text/javascript">
+          var width = 800;
+          var offset = 30;
+          var bolt_time = 9.69;
+          
+          //var all_but_bolt = [735.0253807,727.0516717,739.0243902,691.5662651,707.2580645,679.8798799,581.4634146,652.8827038,622.4852071,563.1067961,30];
+          var sprinters = [
+              {name: 'Usain Bolt', year: 2008, time: 9.69, country: 'JAM'},
+              {name: 'Justin Gatlin', year: 2004, time: 9.85, country: 'USA'},
+              {name: 'Maurice Greene', year: 2000, time: 9.87, country: 'USA'},
+              {name: 'Dononvan Bailey', year: 1996, time: 9.84, country: 'CAN'},
+              {name: 'Linford Christie', year: 1992, time: 9.96, country: 'GBR'},
+              {name: 'Carl Lewis', year: 1988, time: 9.92, country: 'USA'},
+              {name: 'Carl Lewis', year: 1984, time: 9.99, country: 'USA'},
+              {name: 'Allan Wells', year: 1980, time: 10.25, country: 'GBR'},
+              {name: 'Hasely Crawford', year: 1976, time: 10.06, country: 'TRI'},
+              {name: 'Valeriy Borzov', year: 1972, time: 10.14, country: 'URS'},
+              {name: 'Jesse Owens', year: 1936, time: 10.3, country: 'USA'},
+              {name: 'Tom Burke', year: 1896, time: 12, country: 'USA'},
+          ];
+
+          function get_x(data) {
+              //calculate the speed for this sprinter
+              if (data.name == "Usain Bolt") {
+                  data.distance_from_bolt = 0;
+                  data.pos_x = width + offset;
+                  return width + offset;
+              }
+              
+              var time = data.time;
+              var speed = 100 / time;
+
+              //multiply speed with Bolt's time to find out where
+              //they'd be when Bolt finished
+              var position = speed * bolt_time;
+              var distance_from_bolt = 100 - position;
+              
+              //now we could plot distance_from_bolt as it is but
+              //it'll be just 2-3 pixels for most sprinters and so all
+              //the dots will be clustered together. so we'll scale
+              //distance_from_bolt by 40 (I worked this scaling
+              //factor out by hand. Basically if bolt was going to be
+              //plotted on 800, we want the last guy to be as close to
+              //0).
+
+              var x_coordinate = width - (distance_from_bolt * 40);
+
+              //update the data for later use
+              data.distance_from_bolt = distance_from_bolt;
+              data.pos_x = x_coordinate + offset;
+
+              return x_coordinate + offset;
+          }
+
+          //our 'canvas'
+          var svg = d3.select("#viz")
+          .append("svg")
+          .attr("width", width + 4*offset)
+          .attr("height", 400);
+
+          //the line on which all the sprinters will be plotted
+          svg.append("line")
+          .attr("x1", offset)
+          .attr("y1", 200.5)
+          .attr("x2", width + offset)
+          .attr("y2", 200.5)
+          .attr("stroke", "black");
+
+          svg.append("text")
+          .text("100m")
+          .attr("x", width + offset)
+          .attr("y", 240)
+          .attr("class", "small")
+          .attr("text-anchor", "middle");
+
+          svg.append("text")
+          .text("80m")
+          .attr("x", 20)
+          .attr("y", 240)
+          .attr("class", "small")
+          .attr("text-anchor", "middle");
+
+          //the sprinters
+          svg.selectAll("sprinters")
+          .data(sprinters)
+          .enter().append("circle")
+          .attr("r", 5)
+          .attr("cx", 30)
+          .attr("cy", 200)
+          .attr("fill", function(d) {
+              //Usain Bolt deservedly gets special treatment
+              return d.name == "Usain Bolt" ? "#c00" : "#333"
+          })
+          .on("mouseover", function(d) { svg.select("g#y_" + d.year).style("display", ""); })
+          .on("mouseout", function(d) { svg.select("g#y_" + d.year).style("display", "none"); })
+          .transition()
+          .ease("linear")
+          .duration(1000)
+          .attr("cx", function(d) { return get_x(d); })
+          .each("end",
+                function(d) {
+
+                    var grp = svg.append("svg:g").attr("id", "y_" + d.year).style("display", "none");
+                    grp.append("text")
+                        .text(d.name + ' (' + d.year + ') - ' + d.time + 's')
+                        .attr("y", 40)
+                        .attr("x", d.pos_x)
+                        .attr("text-anchor", "middle")
+                        .attr("class", "small");
+
+                    grp.append("line")
+                        .attr("x1", Math.round(d.pos_x) + 0.5)
+                        .attr("y1", 45)
+                        .attr("x2", Math.round(d.pos_x) + 0.5)
+                        .attr("y2",194)
+                        .attr("stroke", "#ccc")
+                        .attr("stroke-width", 1)
+                        .attr("opacity","0.5")
+
+
+                    //transition finsihed. this function is called for
+                    //each element in the sprinters array. 
+                    if(d.name == 'Usain Bolt') {
+                        //we need to
+                        //start the pulser only when it's being called for
+                        //Usain Bolt
+                        svg.append("circle")
+                            .attr("cx", width + offset)
+                            .attr("cy", 200)
+                            .attr("fill", "none")
+                            .attr("stroke-width", 2).attr("stroke", "#cc0000")
+                            .each(pulse());
+                    }
+                    else {
+                        //others get markers for distance from bolt
+                        grp.append("line")
+                            .attr("x1", Math.round(d.pos_x) + 0.5)
+                            .attr("y1", 206)
+                            .attr("x2", Math.round(d.pos_x) + 0.5)
+                            .attr("y2", 225)
+                            .attr("stroke", "#ccc")
+                            .attr("opacity","0.5")
+                        
+                        grp.append("line")
+                            .attr("x1", Math.round(d.pos_x))
+                            .attr("y1", 224.5)
+                            .attr("x2", width + offset)
+                            .attr("y2", 224.5)
+                            .attr("stroke", "#ccc")
+                            .attr("opacity","0.5")
+
+                        grp.append("line")
+                            .attr("x1", width + offset + 0.5)
+                            .attr("y1", 206)
+                            .attr("x2", width + offset + 0.5)
+                            .attr("y2", 225)
+                            .attr("stroke", "#ccc")
+                            .attr("opacity","0.5")
+                        
+                        grp.append("text")
+                            .text(Math.round(d.distance_from_bolt * 100) / 100 + ' m')
+                            .attr("y", 222)
+                            .attr("x", (d.pos_x + width + offset) / 2)
+                            .attr("text-anchor", "middle")
+                            .attr("class", "small");
+                    }
+                }
+           );
+           
+
+          //function that's called in a loop for the red pulsing
+          //circle
+          function pulse() {
+              return function(d, i, j) {
+                  //the stuff before transition() resets the
+                  //attributes of the pulser when this function is
+                  //called again
+                  d3.select(this).attr("r", 5).style("stroke-opacity", 1.0)
+                  .transition()
+                  .ease("linear") //appears a lot more smoother
+                  .duration(1000)
+                  .attr("r",20)
+                  .style("stroke-opacity", 0.0)
+                  .each("end", pulse()); //lather rinse repeat
+              };
+          }
+								
+		</script>
+	</body>
+</html>
